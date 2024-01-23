@@ -1,0 +1,148 @@
+<script>
+
+  // Function to fetch VPS data asynchronously
+  async function getVPSJson() { return await fetch('https://account.alpha.net.bd/modules/servers/HyperV/api.php').then(j => j.json()); }
+
+  // Add loading spinner initially
+  $('.field-container:last').append('<div id="loading-spinner" class="d-flex justify-content-center mb-5 mt-5"><i class="fas fa-spinner"></i></div>');
+
+  // Fetch VPS data and store it in window.vpsLocations
+  window.vpsLocations = await getVPSJson();
+
+  // Function to filter non-fresh IP locations
+  function nonFreshIpLocationFilter() {
+    return window.vpsLocations.map((location) => {
+      let hasUsed = location.available_ip > 0;
+      return hasUsed ? `<option value="${location.id}">${location.city}, ${location.state}</option>` : "";
+    }).join("");
+  }
+
+  // Function to filter fresh IP locations
+  function freshIpLocationFilter() {
+    return window.vpsLocations
+      .map((location) => {
+        let hasFresh = location.fresh_ip > 0;
+
+        return hasFresh
+          ? `<option value="${location.id}">${location.city}, ${location.state}</option>`
+          : "";
+      }).join("");
+  }
+
+  // Get non fresh IP prefix
+  function nonFreshIpPrefix(selectedLocationId) {
+    var targetLocation = window.vpsLocations.find(function (location) {
+      return location.id == selectedLocationId;
+    });
+
+    if (!targetLocation.blocks) {
+      ip_range.html(``)
+      return false
+    }
+
+    return targetLocation.blocks.map((block) => {
+      let hasUsed = block.available_ip > 0;
+      return hasUsed ? `<option value="${block.id}">${block.prefix}</option>` : "";
+    }).join("");
+
+  }
+
+  // Get fresh IP prefix
+  function freshIpPrefix(selectedLocationId) {
+
+    var targetLocation = window.vpsLocations.find(function (location) {
+      return location.id == selectedLocationId;
+    });
+
+    if (!targetLocation.blocks) {
+      ip_range.html(``)
+      return false
+    }
+
+    return targetLocation.blocks.map((block) => {
+      let hasUsed = block.fresh_ip > 0;
+      return hasUsed ? `<option value="${block.id}">${block.prefix}</option>` : "";
+    }).join("");
+  }
+
+  // Remove loading spinner
+  $('#loading-spinner').remove();
+
+  // Append the content to field-container:last
+  $('.field-container:last').append(`<div id="location">
+        <div class="form-group">
+          <label class="d-flex">
+            <div class="icheckbox">
+              <input class="fresh_ip" type="checkbox" name="alpha_fresh_ip">
+            </div>
+            <span class="ml-2 font-weight-bold"> Fresh IP </span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label for="alpha_location">Location</label>
+          <select name="alpha_location" id="alpha_location" class="form-control ip_location">
+            <option value="" selected="">Select One</option>
+            ${nonFreshIpLocationFilter()}
+          </select>
+        </div>
+        <div id="ip_range"></div>
+      </div>`);
+
+  var fresh_ip = $('#location .fresh_ip');
+  var field_container = $('.field-container').find("select[name^=alpha_location]");
+  var ip_range = $('#location #ip_range');
+
+  // Initialize iCheck plugin for the checkbox
+  fresh_ip.iCheck({
+    checkboxClass: 'icheckbox_square-blue'
+  });
+
+  // Handle fresh IP checkbox state changes
+  fresh_ip.on('ifChecked', function (event) {
+
+    ip_range.html(``)
+    field_container.children().slice(1).remove();
+    field_container.append(freshIpLocationFilter());
+
+  }).on('ifUnchecked', function (event) {
+
+    ip_range.html(``)
+    field_container.children().slice(1).remove();
+    field_container.append(nonFreshIpLocationFilter());
+
+  });
+
+  // Handle location selection changes
+  $(document).on('change', '#location .ip_location', function () {
+
+    var selectedLocationId = $(this).find('option:selected').val();
+
+    if (!selectedLocationId) {
+      ip_range.html(``)
+      return false;
+    }
+
+    if ($('.fresh_ip').is(":checked") == true) {
+
+      ip_range.html(`<div class="form-group">
+                    <label for="alpha_ip_range">IP Range</label>
+                    <select name="alpha_ip_range" id="alpha_ip_range" class="form-control ip_range">
+                      <option value="" selected="">Any</option>
+                      ${freshIpPrefix(selectedLocationId)}
+                    </select>
+                  </div>`)
+    } else {
+
+      ip_range.html(`<div class="form-group">
+                  <label for="alpha_ip_range">IP Range</label>
+                  <select name="alpha_ip_range" id="alpha_ip_range" class="form-control ip_range">
+                    <option value="" selected="">Any</option>
+                    ${nonFreshIpPrefix(selectedLocationId)}
+                  </select>
+                </div>`)
+    }
+
+  });
+
+</script>
